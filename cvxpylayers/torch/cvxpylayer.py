@@ -54,7 +54,7 @@ class CvxpyLayer(torch.nn.Module):
         ```
     """
 
-    def __init__(self, problem, parameters, variables):
+    def __init__(self, problem, parameters, variables, solver_args=None):
         """Construct a CvxpyLayer
 
         Args:
@@ -95,8 +95,10 @@ class CvxpyLayer(torch.nn.Module):
         data, _, _ = problem.get_problem_data(solver=cp.SCS)
         self.compiler = data[cp.settings.PARAM_PROB]
         self.cone_dims = dims_to_solver_dict(data["dims"])
+        self._solver_args = solver_args
 
-    def forward(self, *params, solver_args={}):
+
+    def forward(self, *params, solver_args=None):
         """Solve problem (or a batch of problems) corresponding to `params`
 
         Args:
@@ -112,6 +114,19 @@ class CvxpyLayer(torch.nn.Module):
           a list of optimal variable values, one for each CVXPY Variable
           supplied to the constructor.
         """
+
+        # Save optional solver arguments
+        if solver_args is None:
+            if self._solver_args is None:
+                solver_args = {}
+            else:
+                solver_args = self._solver_args
+
+        # This is needed to handle multiple parameters as the tuple is returned default in pytorch
+        if type(params) is tuple:
+            if type(params[0]) in (list, tuple):
+                params = params[0]
+
         if len(params) != len(self.param_ids):
             raise ValueError('A tensor must be provided for each CVXPY '
                              'parameter; received %d tensors, expected %d' % (
